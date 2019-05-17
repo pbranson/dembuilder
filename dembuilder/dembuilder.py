@@ -7,8 +7,7 @@
 from scipy.interpolate import griddata
 import numpy as np
 
-# from dembuilder.kriging import kriging
-from kriging import kriging
+from dembuilder.kriging import kriging
 
 from shapely.ops import cascaded_union, polygonize, unary_union
 from scipy.spatial import Delaunay
@@ -123,9 +122,9 @@ class SamplePointReader(object):
         
         self.rawData = pd.read_csv(self.filename, delim_whitespace=delim_whitespace, header=headerLines, names=['X','Y','Z'])
         
-        x=self.rawData['X'].as_matrix()
-        y=self.rawData['Y'].as_matrix()
-        z=self.rawData['Z'].as_matrix()
+        x=self.rawData['X'].values
+        y=self.rawData['Y'].values
+        z=self.rawData['Z'].values
         
         return x,y,z
 
@@ -384,7 +383,7 @@ class SamplePoints(object):
                 Z = F(rasterSamplePointsX, rasterSamplePointsY,grid=False)
             elif (method == ResampleMethods.NaturalNeighbour):
                 print('** THis doesn''t work for me (RON) at the moment - error "undefined symbol: _intel_fast_memcpy"')
-		#_natgrid.seti(b'ext', 0)
+		        #_natgrid.seti(b'ext', 0)
                 #_natgrid.setr(b'nul', np.nan)
                 #zi = np.empty((raster.xBinCentres.shape[0],raster.yBinCentres.shape[0]), np.float64)
                 #xp = np.require(combinedSampleSet.x, requirements=['C'])
@@ -414,8 +413,6 @@ class SamplePoints(object):
             z[np.where(inds)]=Z
             raster.z = np.where(np.isnan(raster.z), np.reshape(z,raster.z.shape), raster.z)
 
-        
-        
         #return grid
 
     def save(self, filename):
@@ -559,11 +556,11 @@ class Raster(object):
         Z = F(x,y)
         return Z
 
-    def interpolateNatural(self,x,y):
-        F = RegularGridInterpolator((self.yBinCentres,self.xBinCentres),self.z,bounds_error=False,fill_value=0.)
-        pts = np.stack((y, x), axis=1)
-        Z = F(pts)
-        return Z
+    # def interpolateNatural(self,x,y):
+    #     F = RegularGridInterpolator((self.yBinCentres,self.xBinCentres),self.z,bounds_error=False,fill_value=0.)
+    #     pts = np.stack((y, x), axis=1)
+    #     Z = F(pts)
+    #     return Z
 
 def alpha_shape(points, threshold):
     """
