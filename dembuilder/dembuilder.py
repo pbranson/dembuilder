@@ -75,7 +75,7 @@ class SamplePointReader(object):
                 raise ValueError('Unknown input file format and no format argument not specified')
                 
         self.approxSpatialResolution = approxSpatialResolution
-        
+    
     def load(self,variableName=None,headerLines=1,delimiter=None,delim_whitespace=True):
         print(self.format)
         if self.format == SamplePointFormat.Matlab:
@@ -172,6 +172,7 @@ class SamplePointReader(object):
         rasterSRS = osr.SpatialReference()
         rasterSRS.ImportFromWkt(ds.GetProjectionRef())
         self.sourceProj = rasterSRS.ExportToProj4()
+        print('Source projection: ' + self.sourceProj)
 
         return x, y, z
 
@@ -191,6 +192,13 @@ class SamplePoints(object):
         self.x = x 
         self.y = y 
         self.z = z 
+        
+    def __len__(self):
+        return len(self.x)
+    
+    def __repr__(self):
+#         return f'Total samples: {len} \n x={x} \n y={y} \n z={z}'.format(len=str(len(self)),x=self.x.__repr__,y=print(self.y),z=print(self.z))
+        return 'Total samples: {l:d} \n x={x} \n y={y} \n z={z}'.format(l=len(self),x=self.x.__repr__(),y=self.y.__repr__(),z=self.z.__repr__())
     
     def getBoundingBox(self):
         self.boundingBox = getattr(self,'boundingBox',np.array([min(self.x),min(self.y),max(self.x),max(self.y)]))
@@ -257,10 +265,6 @@ class SamplePoints(object):
         self.z = np.concatenate((self.z,z),axis=0)
         
     def resample(self,raster,method,maxDist=1500,statistic='mean'):
-        # first bin my sample data onto the raster 
-
-
-
         #if we are just block averaging, use myBinnedSamples to add to the raster where it was nan
         if (method == ResampleMethods.BlockAvg):
             myBinnedSamples, yedges, xedges, myBinNums = stats.binned_statistic_2d(self.y, self.x, self.z,
@@ -269,16 +273,16 @@ class SamplePoints(object):
                                                                                          raster.xBinEdges],
                                                                                    expand_binnumbers=True)
             raster.z = np.where(np.isnan(raster.z),myBinnedSamples,raster.z)
-        
+        #otherwise things are a little more complicated!
         else:
+            #determine which points in this Samples should be excluded as already covered in the raster
             myBinnedSamples, xedges, yedges, myBinNums = stats.binned_statistic_2d(self.x, self.y, self.z,
                                                                                    statistic='mean',
                                                                                    bins=[raster.xBinEdges,
                                                                                          raster.yBinEdges],
                                                                                    expand_binnumbers=True)
-            #othereise determine which points should be excluded as already sampled in the raster
+            
             # swap x/y to be y dimension 0 x dimension 1 so consistent with plotting convention and meshgrid
-
             # annoyingly the myBinNums represents the index in the edge array not the output myBinnedSamples array,
             # with out of bounds data in the outer cells of the edge array
             # clip this off, re-index and set out of bounds data to a binnumber of -1
@@ -299,11 +303,9 @@ class SamplePoints(object):
             requiredSamplesX = self.x[requiredSamplesIndexes]
             requiredSamplesY = self.y[requiredSamplesIndexes]
             requiredSamplesZ = self.z[requiredSamplesIndexes]
-            print(requiredSampleBins.shape)
-            print(requiredSamplesX.shape)
-            #print('Sampling %i points of %i raster points' % np.size(requiredSamplesX) % np.size(rasterBinNums))
-            #now that we have the 'new' samples provided by my sample set (excluding those already covered by the raster)
-            #bring in the rasters samples so that edges between data are kept consistent with smooth transitions and included in the kriging/interpolation process
+            print('Using %i SamplePoints to fill %i raster points with in the SamplePoints boundary' % (np.size(requiredSamplesX),np.size(requiredSampleBins)))
+            #now that we have the 'new' samples provided by this Sample object (excluding those already covered by the raster)
+            #bring in the rasters samples so that edges between data are kept consistent with smooth/linear transitions and included in the kriging/interpolation process
             combinedSampleSet = raster.getSamples()
             combinedSampleSet.appendSamples(requiredSamplesX,requiredSamplesY,requiredSamplesZ)
 
@@ -319,7 +321,8 @@ class SamplePoints(object):
             # pl.scatter(requiredSamplesX, requiredSamplesY, 80, requiredSamplesZ, 's', vmin=-20, vmax=0)
             # pl.scatter(combinedSampleSet.x, combinedSampleSet.y, 80, combinedSampleSet.z, '.', vmin=-20, vmax=0)
             # pl.show()
-            #and work out what points in the raster fall within my boundary and should be filled by my samples
+            
+            #Work out what points in the raster fall within the boundary of this Samples object and should be filled by the objects Samples
             try:
                 boundaryType = self.boundaryType
                 x=raster.x.ravel()
@@ -346,6 +349,7 @@ class SamplePoints(object):
             except AttributeError:
                 raise AttributeError("Boundary not identified, run getBoundary first and specify a type.")
             
+            #Finally do the resampling with the specified method
             if (method == ResampleMethods.Linear):
                 Z = griddata(list(zip(combinedSampleSet.x, combinedSampleSet.y)), combinedSampleSet.z,
                              list(zip(rasterSamplePointsX, rasterSamplePointsY)), method='linear')
@@ -357,24 +361,10 @@ class SamplePoints(object):
                              rescale=True)
                 Z = F(rasterSamplePointsX, rasterSamplePointsY)
             elif (method == ResampleMethods.Kriging):
-                # x=np.arange(bbox[0],bbox[2]+resolution,resolution)
-                # y=np.arange(bbox[1],bbox[3]+resolution,resolution)
                 points = np.stack((combinedSampleSet.x,combinedSampleSet.y),axis=1)
-                # X,Y=np.meshgrid(x,y)
                 grd = np.stack((rasterSamplePointsX,rasterSamplePointsY)).transpose()
                 self.Finterp = kriging(points,grd,rescale=True,maxdist=maxDist,NNear=7)
                 Z = self.Finterp(combinedSampleSet.z)
-                #z(inds) = Z
-                # pt1,pt2=tile_vector(int(size(x)*size(y)),int(nchunks))
-                # Z = np.zeros((self.grd.npts,))
-                # for p1,p2 in zip(pt1,pt2):
-                # XYout = self.grd.ravel()
-                    # print 'Interpolating tile %d to %d of %d...'%(p1,p2,self.grd.npts)
-                # self.Finterp = kriging(points,XYout[p1:p2,:],maxdist=self.maxdist,NNear=self.NNear)
-                # Z[p1:p2] = self.Finterp(self.Zin)
-            
-                
-            # self.Z = np.reshape(Z,(self.grd.ny,self.grd.nx))
             elif (method == ResampleMethods.BsplineLSQ):
                 F = LSQBivariateSpline(combinedSampleSet.x,combinedSampleSet.y,combinedSampleSet.z,raster.xBinCentres,raster.yBinCentres)
                 Z = F(rasterSamplePointsX,rasterSamplePointsY,grid=False)
@@ -394,21 +384,11 @@ class SamplePoints(object):
                 #_natgrid.natgridd(xp, yp, zp, xi, yi, zi)
 
                 #Z = zi[inds.reshape(zi.shape)]
-            elif (method == ResampleMethods.Rbf):
-
-                self.points=getattr(self,'points',geometry.MultiPoint(list(zip(self.x,self.y))))
-            
-                self.boundary, weededTri = alpha_shape(self.points,threshold)
-            
-                x=np.arange(bbox[0],bbox[2]+resolution,resolution)
-                y=np.arange(bbox[1],bbox[3]+resolution,resolution)
-                
+            elif (method == ResampleMethods.Rbf):                
                 coords=zip(self.x,self.y)
                 tri = Delaunay(coords)
-                
                 rbfi = Rbf(self.x,self.y,self.z)
                 Z = rbfi(x,y)
-                X,Y=np.meshgrid(x,y)
         
             z[np.where(inds)]=Z
             raster.z = np.where(np.isnan(raster.z), np.reshape(z,raster.z.shape), raster.z)
@@ -617,7 +597,6 @@ def alpha_shape(points, threshold):
             add_edge(edges, edge_points, coords, ic, ia)
     m = geometry.MultiLineString(edge_points)
     triangles = list(polygonize(m))
-    
     
     return cascaded_union(triangles), edge_points
             
