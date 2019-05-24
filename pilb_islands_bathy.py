@@ -85,12 +85,12 @@ for bathy in bathyfiles:
     #interpolate to raster ojbect
     newSamples.resample(newRaster,method=db.ResampleMethods.BlockAvg)     
 
-newRaster.plot()
+newRaster.plot_island()
 
 #%% export new raster
 
 #need to add code to assign projection info to .tff
-#newRaster.saveToFile('PilbaraIslands.tif')
+newRaster.saveToFile('PilbaraIslands.tif')
 
 newRaster.getSamples().saveXYZ('PilbaraIslands.xyz')
 
