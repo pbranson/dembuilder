@@ -19,7 +19,7 @@ import dembuilder as db
 
 sys.path.append('../')
 
-#%% build base bathy from 200m resolution 
+#%% build base bathy from 200m-resolution Pilbara coastal bathy
 
 bbox=np.zeros(4)
 
@@ -29,11 +29,11 @@ bbox[1] = 7550000 #bottom
 bbox[2] = 291000 #right
 bbox[3] = 7620000 #top
 
-newRaster2 = db.Raster(bbox=bbox, resolution=500, epsgCode=28350)
+newRaster = db.Raster(bbox=bbox, resolution=200, epsgCode=28350)
 
 
-sampleReader2 = db.SamplePointReader('Pilbara_200m_Composite_Linear.tif',cropTo=bbox)
-samples2 = sampleReader.load()
+sampleReader = db.SamplePointReader('Pilbara_200m_Composite_Linear.tif',cropTo=bbox)
+samples = sampleReader.load()
 
 #Before any loaded samples can be used to fill the raster, you must specify the type of boundary to use to limit extrapolation.
     #options for boundary type
@@ -42,7 +42,7 @@ samples2 = sampleReader.load()
     # <BoundaryPolygonType.ConcaveHull: 2>]
     
 #box boundary
-samples2.generateBoundary(type=db.BoundaryPolygonType.Box)
+samples.generateBoundary(type=db.BoundaryPolygonType.Box)
 
 #interpolate bathy to raster
     #re-sampling methods
@@ -56,7 +56,7 @@ samples2.generateBoundary(type=db.BoundaryPolygonType.Box)
     # <ResampleMethods.Kriging: 7>,
     # <ResampleMethods.NaturalNeighbour: 8>]
     
-samples2.resample(newRaster2,method=1)
+samples.resample(newRaster,method=db.ResampleMethods.BlockAvg)
 
 #show bathy
 newRaster.plot()
