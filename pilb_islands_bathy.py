@@ -31,7 +31,7 @@ bbox[3] = 7620000 #top
 
 newRaster = db.Raster(bbox=bbox, resolution=200, epsgCode=28350)
 
-
+#consider adding functionality such that bathy files can read from sub-folder (e.g. .\bathyfiles)
 sampleReader = db.SamplePointReader('Pilbara_200m_Composite_Linear.tif',cropTo=bbox)
 samples = sampleReader.load()
 
