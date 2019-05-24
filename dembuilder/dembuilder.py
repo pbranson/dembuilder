@@ -523,6 +523,20 @@ class Raster(object):
         cb.set_label('z')
         # pl.show()
         return fig, ax
+    
+    def plot_island(self,vmin=-10,vmax=10,margin=250):
+
+        fig = pl.figure(figsize=(12, 8))
+        ax = fig.add_subplot(111)
+        x_min, y_min, x_max, y_max = self.bbox
+        pc=pl.pcolormesh(self.xBinEdges, self.yBinEdges, self.z, vmin=vmin, vmax=vmax)
+        ax.axis('image')
+        ax.set_xlim([x_min - margin, x_max + margin])
+        ax.set_ylim([y_min - margin, y_max + margin])
+        cb=pl.colorbar(pc)
+        cb.set_label('z')
+        # pl.show()
+        return fig, ax
 
     def interpolate(self,x,y):
         F = RegularGridInterpolator((self.yBinCentres,self.xBinCentres),self.z,bounds_error=False,fill_value=0.)
