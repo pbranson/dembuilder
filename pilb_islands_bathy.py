@@ -29,11 +29,11 @@ bbox[1] = 7550000 #bottom
 bbox[2] = 291000 #right
 bbox[3] = 7620000 #top
 
-newRaster = db.Raster(bbox=bbox, resolution=500, epsgCode=28350)
+newRaster2 = db.Raster(bbox=bbox, resolution=500, epsgCode=28350)
 
 
-sampleReader = db.SamplePointReader('Pilbara_200m_Composite_Linear.tif',cropTo=bbox)
-samples = sampleReader.load()
+sampleReader2 = db.SamplePointReader('Pilbara_200m_Composite_Linear.tif',cropTo=bbox)
+samples2 = sampleReader.load()
 
 #Before any loaded samples can be used to fill the raster, you must specify the type of boundary to use to limit extrapolation.
     #options for boundary type
@@ -42,7 +42,7 @@ samples = sampleReader.load()
     # <BoundaryPolygonType.ConcaveHull: 2>]
     
 #box boundary
-samples.generateBoundary(type=db.BoundaryPolygonType.Box)
+samples2.generateBoundary(type=db.BoundaryPolygonType.Box)
 
 #interpolate bathy to raster
     #re-sampling methods
@@ -56,7 +56,7 @@ samples.generateBoundary(type=db.BoundaryPolygonType.Box)
     # <ResampleMethods.Kriging: 7>,
     # <ResampleMethods.NaturalNeighbour: 8>]
     
-samples.resample(newRaster,method=db.ResampleMethods.BlockAvg)
+samples2.resample(newRaster2,method=1)
 
 #show bathy
 newRaster.plot()
