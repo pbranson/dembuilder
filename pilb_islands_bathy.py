@@ -24,10 +24,10 @@ sys.path.append('../')
 bbox=np.zeros(4)
 
 #limits of Pilbara_200m_Composite_Linear.tif
-bbox[0] = 217000 #left
-bbox[1] = 7550000 #bottom
-bbox[2] = 291000 #right
-bbox[3] = 7620000 #top
+bbox[0] = 26900 #left
+bbox[1] = 7423900 #bottom
+bbox[2] = 524100 #right
+bbox[3] = 7888100 #top
 
 newRaster = db.Raster(bbox=bbox, resolution=200, epsgCode=28350)
 
