@@ -44,8 +44,21 @@ samples = sampleReader.load()
 #box boundary
 samples.generateBoundary(type=db.BoundaryPolygonType.Box)
 
-#show bathy
+#interpolate bathy to raster
+    #re-sampling methods
+    #[<ResampleMethods.BlockAvg: 0>,
+    # <ResampleMethods.Linear: 1>,
+    # <ResampleMethods.Cubic: 2>,
+    # <ResampleMethods.SmoothCubic: 3>,
+    # <ResampleMethods.BsplineLSQ: 4>,
+    # <ResampleMethods.BsplineSmooth: 5>,
+    # <ResampleMethods.Rbf: 6>,
+    # <ResampleMethods.Kriging: 7>,
+    # <ResampleMethods.NaturalNeighbour: 8>]
+    
 samples.resample(newRaster,method=db.ResampleMethods.BlockAvg)
+
+#show bathy
 newRaster.plot()
 
 #%% add island to bathy
@@ -73,6 +86,11 @@ for bathy in bathyfiles:
     newSamples.resample(newRaster,method=db.ResampleMethods.BlockAvg)     
 
 newRaster.plot()
-newRaster.saveToFile('PilbaraIslands.tiff')
+
+#%% export new raster
+
+#need to add code to assign projection info to .tff
+#newRaster.saveToFile('PilbaraIslands.tif')
+
 newRaster.getSamples().saveXYZ('PilbaraIslands.xyz')
 
