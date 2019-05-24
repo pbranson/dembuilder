@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Testing dembuilder for Pilbara Islands bathymetry
+Example script demonstrating functionality of dembuilder
+Code copied from P Branson's jupyter notebook - basically just so MC doesn't have to keep flipping between 
+google chrome and spyder
 
 M Cuttler
 May 2019
