@@ -31,11 +31,6 @@ bbox[3] = 7620000 #top
 newRaster = db.Raster(bbox=bbox, resolution=500, epsgCode=28350)
 
 #read bathy file and crop to bounding box
-sampleReader = db.SamplePointReader('Pilbara_200m_Composite_Linear.tif',cropTo=bbox)
-samples = sampleReader.load()
-
-#disp samples (x,y,z, arrays)
-samples
 
 filepath = os.path.join(os.getcwd(),'notebooks')
 filename = 'Pilbara_200m_Composite_Linear.tif'
