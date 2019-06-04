@@ -11,6 +11,7 @@ May 2019
 #%% Example from P Branson notebook
 
 #import python modules
+import os
 import sys
 import numpy as np
 
@@ -18,6 +19,8 @@ import numpy as np
 import dembuilder as db
 
 sys.path.append('../')
+
+#%% 
 
 #define bounding box of new raster
 bbox=np.zeros(4)
@@ -34,6 +37,16 @@ samples = sampleReader.load()
 #disp samples (x,y,z, arrays)
 samples
 
+filepath = os.path.join(os.getcwd(),'notebooks')
+filename = 'Pilbara_200m_Composite_Linear.tif'
+sampleReader = db.SamplePointReader(os.path.join(filepath, filename),cropTo=bbox)
+samples = sampleReader.load()
+
+#dispay samples (x,y,z, arrays)
+samples
+
+#%% 
+
 #show options for boundary types
 [t for t in db.BoundaryPolygonType]
 
@@ -42,6 +55,8 @@ samples.generateBoundary(type=db.BoundaryPolygonType.Box)
 
 #plot samples
 samples.plot()
+
+#%% create 'random' secondary bathymetry points
 
 #define random samples to incorporate into bathy; could also load another bathy file (.tif, .xyz, .mat, .nc)
 x = np.random.rand(100) * 10000 + 240000
@@ -56,6 +71,8 @@ randomSamples.plot()
 #generate a concave hull boundary and thresold distance to 1500 
 randomSamples.generateBoundary(type=db.BoundaryPolygonType.ConcaveHull,threshold=1500)
 
+#%% interpolate new bathy to raster object
+
 #show resampling methods
 [t for t in db.ResampleMethods]
 
@@ -64,6 +81,8 @@ randomSamples.resample(newRaster,method=db.ResampleMethods.Linear)
 
 #plot new raster with interpolated bathy (only has randomSamples)
 newRaster.plot()
+
+#%% compile multiple bathy sets together
 
 #include bathy from Pilbara_200m_composite
 samples.resample(newRaster,method=db.ResampleMethods.BlockAvg)
@@ -76,7 +95,13 @@ newRaster.saveToFile('tempRaster.tiff')
 #export raster as .xyz
 newRaster.getSamples().saveXYZ('tempRaster.xyz')
 
-#can also load existing rasters 
+
+#%% save raster to current directory as .tif
+newRaster.saveToFile('tempRaster.tiff')
+#export raster to current directory as .xyz
+newRaster.getSamples().saveXYZ('tempRaster.xyz')
+#%% can also load existing rasters
+
 loadedRaster = db.Raster.loadFromFile('tempRaster.tiff')
 loadedRaster.plot()
 
