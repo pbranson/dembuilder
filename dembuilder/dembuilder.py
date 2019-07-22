@@ -180,7 +180,7 @@ class SamplePointReader(object):
         np.savez_compressed(filename,self.x,self.y,self.z)
 
 class BoundaryPolygonType(Enum):
-    Box, ConvexHull, ConcaveHull = range(3)    
+    Box, ConvexHull, ConcaveHull, Polygon = range(4)    
     
 class ResampleMethods(Enum):
     BlockAvg, Linear, Cubic, SmoothCubic, BsplineLSQ, BsplineSmooth, Rbf, Kriging, NaturalNeighbour = range(9)
@@ -204,21 +204,22 @@ class SamplePoints(object):
         self.boundingBox = getattr(self,'boundingBox',np.array([min(self.x),min(self.y),max(self.x),max(self.y)]))
         return self.boundingBox
         
-    def generateBoundary(self,type,threshold=250):
+    def generateBoundary(self,type,threshold=250,points=None):
         if (type == BoundaryPolygonType.Box):
             bbox=self.getBoundingBox()
-            # x=[bbox[0] bbox[0] bbox[2] bbox[2]]
-            # y=[bbox[1] bbox[3] bbox[3] bbox[1]]
-            # self.boundary = geometry.Polygon(zip(x,y))
             self.boundary = geometry.box(bbox[0],bbox[1],bbox[2],bbox[3])
-        
+        elif (type == BoundaryPolygonType.Polygon):
+            if points is None:
+                raise ValueError("Need to supply x,y points for boundary")
+            self.boundary = geometry.Polygon(points)
         else:
-            self.points = geometry.MultiPoint(list(zip(self.x,self.y)))
+            self.points = geometry.MultiPoint(zip(self.x,self.y))
             if (type == BoundaryPolygonType.ConvexHull):
                 self.boundary = self.points.convex_hull
             if (type == BoundaryPolygonType.ConcaveHull):
                 self.boundary, self.triangulation = alpha_shape(self.points,threshold)
         self.boundaryType = type
+
     
     def triangulate(self):
         self.triangulation = Delaunay(list(zip(self.x,self.y)))
