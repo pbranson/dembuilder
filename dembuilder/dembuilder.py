@@ -211,6 +211,7 @@ class SamplePoints(object):
             # y=[bbox[1] bbox[3] bbox[3] bbox[1]]
             # self.boundary = geometry.Polygon(zip(x,y))
             self.boundary = geometry.box(bbox[0],bbox[1],bbox[2],bbox[3])
+        
         else:
             self.points = geometry.MultiPoint(list(zip(self.x,self.y)))
             if (type == BoundaryPolygonType.ConvexHull):
