@@ -64,3 +64,4 @@ dask-worker-space/
 Icon*
 
 .ipynb_checkpoints
+Thumbs.db
