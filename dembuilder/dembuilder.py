@@ -216,7 +216,7 @@ class SamplePoints(object):
                 raise ValueError("Need to supply x,y points for boundary")
             self.boundary = geometry.Polygon(points)
         else:
-            self.points = geometry.MultiPoint(zip(self.x,self.y))
+            self.points = geometry.MultiPoint(list(zip(self.x,self.y)))
             if (boundary_type == BoundaryPolygonType.ConvexHull):
                 self.boundary = self.points.convex_hull
             if (boundary_type == BoundaryPolygonType.ConcaveHull):
@@ -390,7 +390,7 @@ class SamplePoints(object):
 
                 #Z = zi[inds.reshape(zi.shape)]
             elif (method == ResampleMethods.Rbf):                
-                coords=zip(self.x,self.y)
+                coords=list(zip(self.x,self.y))
                 tri = Delaunay(coords)
                 rbfi = Rbf(self.x,self.y,self.z)
                 Z = rbfi(x,y)
@@ -492,6 +492,8 @@ class Raster(object):
 
         # noDataVal = band.GetNoDataValue()
 
+        print(f"(x_size,y_size)=({x_size},{y_size}")
+
         x_coords = x_size * np.arange(0, band.XSize) + upper_left_x + (x_size / 2)  # add half the cell size
         y_coords = y_size * np.arange(0, band.YSize) + upper_left_y + (y_size / 2)  # to centre the point
 
@@ -506,7 +508,10 @@ class Raster(object):
         bbox[3] = np.max(y_coords)
 
         newRaster = cls(bbox,x_size,epsgCode)
+        
         newRaster.z = band.ReadAsArray().astype(np.float)
+        if y_size < 0:
+            newRaster.z = np.flipud(newRaster.z)
 
         # if noDataVal is None:
         #     mask = np.isnan(z)
