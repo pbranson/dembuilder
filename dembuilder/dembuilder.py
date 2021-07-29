@@ -23,7 +23,7 @@ from pyproj import Proj, transform
 import math
 import shapely.geometry as geometry
 import scipy.stats as stats
-import gdal, osr
+from osgeo import gdal, osr
 import os      
 from enum import Enum
 from scipy.ndimage.filters import gaussian_filter
@@ -39,7 +39,7 @@ class SamplePointFormat(Enum):
 #Factory Class to read sample data and produce SampleData objects    
 class SamplePointReader(object):
     
-    def __init__(self,filename,coordConvert=False,sourceProj='+init=epsg:4326',targetProj='+init=epsg:28350',format=SamplePointFormat.Unknown,approxSpatialResolution=0,cropTo=None):
+    def __init__(self,filename,coordConvert=False,sourceProj='epsg:4326',targetProj='epsg:28350',format=SamplePointFormat.Unknown,approxSpatialResolution=0,cropTo=None):
 
         self.coordConvert = coordConvert
         self.sourceProj = sourceProj
@@ -92,10 +92,9 @@ class SamplePointReader(object):
             x, y ,z = self._loadDataGeoTIFF()
 
         if self.coordConvert:
-
-            inProj = Proj(self.sourceProj)
-            outProj = Proj(self.targetProj)
-            x, y = transform(inProj, outProj, x, y)
+            from pyproj import Transformer
+            transformer = Transformer.from_crs(self.sourceProj, self.targetProj)
+            x, y = transformer.transform(x, y)
 
             #return SamplePoints(x2, y2, z)
 
