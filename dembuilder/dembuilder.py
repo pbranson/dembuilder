@@ -23,11 +23,12 @@ from pyproj import Proj, transform
 import math
 import shapely.geometry as geometry
 import scipy.stats as stats
-import gdal, osr
+from osgeo import gdal, osr
 import os      
 from enum import Enum
 from scipy.ndimage.filters import gaussian_filter
 import pylab as pl
+import fsspec
 # from mpl_toolkits.natgrid import _natgrid
 
 
@@ -38,7 +39,7 @@ class SamplePointFormat(Enum):
 #Factory Class to read sample data and produce SampleData objects    
 class SamplePointReader(object):
     
-    def __init__(self,filename,coordConvert=False,sourceProj='+init=epsg:4326',targetProj='+init=epsg:28350',format=SamplePointFormat.Unknown,approxSpatialResolution=0,cropTo=None):
+    def __init__(self,filename,coordConvert=False,sourceProj='epsg:4326',targetProj='epsg:28350',format=SamplePointFormat.Unknown,approxSpatialResolution=0,cropTo=None):
 
         self.coordConvert = coordConvert
         self.sourceProj = sourceProj
@@ -91,10 +92,9 @@ class SamplePointReader(object):
             x, y ,z = self._loadDataGeoTIFF()
 
         if self.coordConvert:
-
-            inProj = Proj(self.sourceProj)
-            outProj = Proj(self.targetProj)
-            x, y = transform(inProj, outProj, x, y)
+            from pyproj import Transformer
+            transformer = Transformer.from_crs(self.sourceProj, self.targetProj)
+            x, y = transformer.transform(x, y)
 
             #return SamplePoints(x2, y2, z)
 
@@ -119,27 +119,29 @@ class SamplePointReader(object):
         
     def _loadDataXyz(self,headerLines, delimiter=None, delim_whitespace=True):
         import pandas as pd
-        
-        self.rawData = pd.read_csv(self.filename, delim_whitespace=delim_whitespace, header=headerLines, names=['X','Y','Z'])
-        
-        x=self.rawData['X'].values
-        y=self.rawData['Y'].values
-        z=self.rawData['Z'].values
+
+        with fsspec.open(self.filename) as of:
+            self.rawData = pd.read_csv(of, delim_whitespace=delim_whitespace, header=headerLines, names=['X','Y','Z'])
+            
+            x=self.rawData['X'].values
+            y=self.rawData['Y'].values
+            z=self.rawData['Z'].values
         
         return x,y,z
 
     def _loadDataNetcdf(self,variableName,convertLL=True):
         import xarray as xr
 
-        ds = xr.open_dataset(self.filename)
+        with fsspec.open(self.filename) as of:
+            ds = xr.open_dataset(of)
 
-        #self.rawData = pd.read_csv(self.filename, delim_whitespace=True, header=1, names=['X', 'Y', 'Z'])
-	
-        # z = ds.z.data.ravel()
-        z = ds[variableName].data.ravel()
-        x, y = np.meshgrid(ds.lon.data, ds.lat.data)
-        x = x.ravel()
-        y = y.ravel()
+            #self.rawData = pd.read_csv(self.filename, delim_whitespace=True, header=1, names=['X', 'Y', 'Z'])
+        
+            # z = ds.z.data.ravel()
+            z = ds[variableName].values.ravel()
+            x, y = np.meshgrid(ds.lon.data, ds.lat.data)
+            x = x.values.ravel()
+            y = y.values.ravel()
 
         return x, y, z
 
@@ -180,7 +182,7 @@ class SamplePointReader(object):
         np.savez_compressed(filename,self.x,self.y,self.z)
 
 class BoundaryPolygonType(Enum):
-    Box, ConvexHull, ConcaveHull = range(3)    
+    Box, ConvexHull, ConcaveHull, Polygon = range(4)    
     
 class ResampleMethods(Enum):
     BlockAvg, Linear, Cubic, SmoothCubic, BsplineLSQ, BsplineSmooth, Rbf, Kriging, NaturalNeighbour = range(9)
@@ -204,20 +206,22 @@ class SamplePoints(object):
         self.boundingBox = getattr(self,'boundingBox',np.array([min(self.x),min(self.y),max(self.x),max(self.y)]))
         return self.boundingBox
         
-    def generateBoundary(self,type,threshold=250):
-        if (type == BoundaryPolygonType.Box):
+    def generateBoundary(self,boundary_type=BoundaryPolygonType.Box,threshold=250,points=None):
+        if (boundary_type == BoundaryPolygonType.Box):
             bbox=self.getBoundingBox()
-            # x=[bbox[0] bbox[0] bbox[2] bbox[2]]
-            # y=[bbox[1] bbox[3] bbox[3] bbox[1]]
-            # self.boundary = geometry.Polygon(zip(x,y))
             self.boundary = geometry.box(bbox[0],bbox[1],bbox[2],bbox[3])
+        elif (boundary_type == BoundaryPolygonType.Polygon):
+            if points is None:
+                raise ValueError("Need to supply x,y points for boundary")
+            self.boundary = geometry.Polygon(points)
         else:
             self.points = geometry.MultiPoint(list(zip(self.x,self.y)))
-            if (type == BoundaryPolygonType.ConvexHull):
+            if (boundary_type == BoundaryPolygonType.ConvexHull):
                 self.boundary = self.points.convex_hull
-            if (type == BoundaryPolygonType.ConcaveHull):
+            if (boundary_type == BoundaryPolygonType.ConcaveHull):
                 self.boundary, self.triangulation = alpha_shape(self.points,threshold)
-        self.boundaryType = type
+        self.boundaryType = boundary_type
+
     
     def triangulate(self):
         self.triangulation = Delaunay(list(zip(self.x,self.y)))
@@ -385,7 +389,7 @@ class SamplePoints(object):
 
                 #Z = zi[inds.reshape(zi.shape)]
             elif (method == ResampleMethods.Rbf):                
-                coords=zip(self.x,self.y)
+                coords=list(zip(self.x,self.y))
                 tri = Delaunay(coords)
                 rbfi = Rbf(self.x,self.y,self.z)
                 Z = rbfi(x,y)
@@ -420,8 +424,8 @@ class Raster(object):
     def __init__(self,bbox,resolution,epsgCode):
     
         self.bbox = bbox
-        x=np.arange(bbox[0],bbox[2]+0.1,resolution)
-        y=np.arange(bbox[1],bbox[3]+0.1,resolution)
+        x=np.arange(bbox[0],bbox[2]+resolution*0.51,resolution)
+        y=np.arange(bbox[1],bbox[3]+resolution*0.51,resolution)
 
         self.x, self.y = np.meshgrid(x,y)
         self.z = np.empty(self.y.shape)
@@ -429,8 +433,8 @@ class Raster(object):
 
         self.xBinCentres = x
         self.yBinCentres = y
-        self.xBinEdges = np.arange(bbox[0]-resolution/2,bbox[2]+resolution/2+0.1,resolution)
-        self.yBinEdges = np.arange(bbox[1]-resolution/2,bbox[3]+resolution/2+0.1,resolution)
+        self.xBinEdges = np.arange(bbox[0]-resolution/2.,bbox[2]+resolution-1E-20,resolution)
+        self.yBinEdges = np.arange(bbox[1]-resolution/2.,bbox[3]+resolution-1E-20,resolution)
                 
         self.resolution = resolution
         self.epsgCode = epsgCode
@@ -487,6 +491,8 @@ class Raster(object):
 
         # noDataVal = band.GetNoDataValue()
 
+        print(f"(x_size,y_size)=({x_size},{y_size}")
+
         x_coords = x_size * np.arange(0, band.XSize) + upper_left_x + (x_size / 2)  # add half the cell size
         y_coords = y_size * np.arange(0, band.YSize) + upper_left_y + (y_size / 2)  # to centre the point
 
@@ -501,7 +507,10 @@ class Raster(object):
         bbox[3] = np.max(y_coords)
 
         newRaster = cls(bbox,x_size,epsgCode)
+        
         newRaster.z = band.ReadAsArray().astype(np.float)
+        if y_size < 0:
+            newRaster.z = np.flipud(newRaster.z)
 
         # if noDataVal is None:
         #     mask = np.isnan(z)
